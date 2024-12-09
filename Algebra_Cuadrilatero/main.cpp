@@ -1,10 +1,7 @@
-//Cambiar la funcion CheckColissionLines() por algo que hagamos nosotros
-//Chequear caso reloj de arena tomando en cuenta solo los lados del cuadriletro y no el segmento completo
-//Calcular permietro y area (tambien hay que aislar los lados)
-
 #include <iostream>
 #include <string>
-#include <cmath>
+#include <math.h>
+#include <vector>
 #include "raylib.h"
 
 using namespace std;
@@ -21,6 +18,7 @@ struct Line
 	Vector2 end;
 	Vector2 intersections[possibleIntersections];
 	int totalLineIntersections = 0;
+	int index;
 };
 
 // Sobrecarga del operador == para Vector2
@@ -64,11 +62,35 @@ bool CheckMinimumLinesIntersections(Line lines[]);
 
 bool IsQuadrilateral(Line lines[], Vector2 previousIntersections[]);
 
-bool IsNotPreviousLine(Line previousLines[], Line otherLine, int step);
+bool IsNotUsedLine(Line previousLines[], Line otherLine, int step);
 
 float CalculateArea(Vector2 points[], int n);
 
 float CalculatePerimeter(Vector2 points[], int n);
+
+
+
+void DebugLines(Line lines[])
+{
+	for (int i = 0; i < totalLines; i++)
+	{
+		cout << "Line " << lines[i].index << ": " << lines[i].origin.x << ", " << lines[i].origin.y << " - " << lines[i].end.x << ", " << lines[i].end.y << endl;
+
+		for (int j = 0; j < lines[i].totalLineIntersections; j++)
+		{
+			cout << "   Intersection " << j << ": " << lines[i].intersections[j].x << ", " << lines[i].intersections[j].y << endl;
+		}
+	}
+	cout << endl;
+}
+void DebugIntersections(Vector2 intersections[])
+{
+	for (int i = 0; i < totalLines; i++)
+	{
+		cout << "Intersection " << i << ": " << intersections[i].x << ", " << intersections[i].y << endl;
+	}
+	cout << endl;
+}
 
 
 
@@ -82,6 +104,8 @@ void main()
 	float perimeter = 0.0f;
 	string areaText;
 	string perimeterText;
+
+	bool linesInitializated = false;
 
 	//Screen
 	const int screenWidth = 1366;
@@ -104,19 +128,23 @@ void main()
 	{
 
 		FillLines(lines, clickCounter, i);
-		SaveIntersections(lines);
-		// Update
 
-		// TODO: Update your variables here
-
-		// Draw    
 		BeginDrawing();
+		ClearBackground(BLACK);
 
 		DrawLines(lines);
 		DrawIntersections(lines);
 
+
 		if (linesDrawn == 4)
 		{
+			if (!linesInitializated)
+			{
+				SaveIntersections(lines);
+				linesInitializated = true;
+			}
+
+
 			if (IsQuadrilateral(lines, usedIntersections))
 			{
 				DrawText("ES CUADRILATERO!!", 5, 5, 30, GREEN);
@@ -125,8 +153,8 @@ void main()
 				area = CalculateArea(usedIntersections, 4);
 				perimeter = CalculatePerimeter(usedIntersections, 4);
 
-				areaText = "Area: " + to_string(perimeter);
-				perimeterText = "Perimieter: " + to_string(area);
+				areaText = "Area: " + to_string(area);
+				perimeterText = "Perimieter: " + to_string(perimeter);
 
 				DrawText(areaText.data(), 5, GetScreenHeight() - 35, 30, BLUE);
 				DrawText(perimeterText.data(), 5, GetScreenHeight() - 75, 30, BLUE);
@@ -137,21 +165,16 @@ void main()
 			}
 		}
 
-		ClearBackground(BLACK);
-
 		EndDrawing();
 	}
 
-	// De-Initialization 
-	CloseWindow();        // Close window and OpenGL context
+	CloseWindow();
 }
 
 void FillLines(Line lines[], int& clickCounter, int& i)
 {
-
 	if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && i < 4)
 	{
-
 		if (clickCounter % 2 == 0)
 		{
 			lines[i].origin = GetMousePosition();
@@ -160,6 +183,7 @@ void FillLines(Line lines[], int& clickCounter, int& i)
 		else
 		{
 			lines[i].end = GetMousePosition();
+			lines[i].index = i;
 			i++;
 			clickCounter++;
 		}
@@ -169,9 +193,13 @@ void FillLines(Line lines[], int& clickCounter, int& i)
 void DrawLines(Line lines[])
 {
 	linesDrawn = 0;
+
 	for (int j = 0; j < totalLines; j++)
 	{
-		if (lines[j].origin.x != 0 && lines[j].origin.y != 0 && lines[j].end.x != 0 && lines[j].end.y != 0)
+		if (lines[j].origin.x != 0 &&
+			lines[j].origin.y != 0 &&
+			lines[j].end.x != 0 &&
+			lines[j].end.y != 0)
 		{
 			DrawLine(lines[j].origin.x, lines[j].origin.y, lines[j].end.x, lines[j].end.y, WHITE);
 			linesDrawn++;
@@ -209,12 +237,12 @@ bool MyCheckCollisionLines(Line line1, Line line2, Vector2& collisionPoint)
 		float yi = ((startPos2.y - endPos2.y) * (startPos1.x * endPos1.y - startPos1.y * endPos1.x) - (startPos1.y - endPos1.y) * (startPos2.x * endPos2.y - startPos2.y * endPos2.x)) / determinant;
 
 		//Verifico que sean parte de la primer linea
-		if (((xi > startPos1.x && xi < endPos1.x) || (xi > endPos1.x && xi < startPos1.x)) &&
-			((yi > startPos1.y && yi < endPos1.y) || (yi > endPos1.y && yi < startPos1.y)))
+		if (((xi >= startPos1.x && xi <= endPos1.x) || (xi >= endPos1.x && xi <= startPos1.x)) &&
+			((yi >= startPos1.y && yi <= endPos1.y) || (yi >= endPos1.y && yi <= startPos1.y)))
 		{
 			//Verifico que sean parte de las segunda linea
-			if (((xi > startPos2.x && xi < endPos2.x) || (xi > endPos2.x && xi < startPos2.x)) &&
-				((yi > startPos2.y && yi < endPos2.y) || (yi > endPos2.y && yi < startPos2.y)))
+			if (((xi >= startPos2.x && xi <= endPos2.x) || (xi >= endPos2.x && xi <= startPos2.x)) &&
+				((yi >= startPos2.y && yi <= endPos2.y) || (yi >= endPos2.y && yi <= startPos2.y)))
 			{
 				//Guardo la interseccion
 				isIntersection = true;
@@ -293,92 +321,136 @@ bool CheckMinimumLinesIntersections(Line lines[])
 	return true;
 }
 
-bool IsQuadrilateral(Line lines[], Vector2 previousIntersections[]) {
-	Line previousLines[totalLines];
-	int step = 0;
+
+
+bool IsQuadrilateral(Line lines[], Vector2 usedIntersections[])
+{
+	Line usedLines[totalLines];
 	Vector2 startIntersection;
 	Line startLine;
 
-	float area = 0.0f;
-	float perimeter = 0.0f;
+	int step = 0; // Número de intersecciones encontradas
+	int lineIndex = 0; // Índice de la línea actual
+	int intersectionIndex = 0; // Índice de la intersección actual
+	bool startFound = false;
 
-	//Reviso las condiciones minimas
+	// Reviso las condiciones mínimas
 	if (!CheckMinimumIntersections() || !CheckMinimumLinesIntersections(lines))
 		return false;
 
-	//Encuentra una intersección inicial
-	bool startFound = false;
-	for (int i = 0; i < totalLines && !startFound; i++)
+	do
 	{
-		for (int j = 0; j < possibleIntersections && !startFound; j++)
+		// Encuentro la primera intersección válida para comenzar
+		for (int i = lineIndex; i < totalLines && !startFound; i++)
 		{
-			if (lines[i].intersections[j].x != -1 && lines[i].intersections[j].y != -1)
+			for (int j = intersectionIndex; j < possibleIntersections && !startFound; j++)
 			{
-				startIntersection = lines[i].intersections[j];
-				startLine = lines[i];
-				previousLines[step] = lines[i];
-				step++;
-				startFound = true;
-			}
-		}
-	}
-
-	Vector2 currentIntersection = startIntersection;
-
-	//Recorre hasta haber encontrado 4 intersecciones relacionadas en las 4 lineas
-	while (step < totalLines)
-	{
-		bool foundNext = false;
-
-		//Busco la siguiente interseccion
-		for (int i = 0; i < totalLines && !foundNext; i++)
-		{
-			//Reviso que no sea una linea que ya haya usado
-			if (IsNotPreviousLine(previousLines, lines[i], step) || step == totalLines - 1)
-			{
-				for (int j = 0; j < possibleIntersections; j++)
+				if (lines[i].intersections[j].x != -1 && lines[i].intersections[j].y != -1)
 				{
-					//Encuentra el ultimo vertice
-					if (step == totalLines - 1 && lines[i] == startLine && lines[i].intersections[j] == startIntersection)
-					{
-						return true;
-					}
-					else if (lines[i].intersections[j] == currentIntersection) //Encuentro en que otra linea esta la interseccion 
-					{
-						previousIntersections[step - 1] = lines[i].intersections[j];
-						previousLines[step] = lines[i];
-						currentIntersection = lines[i].intersections[(j + 1) % lines[i].totalLineIntersections]; /*Cambia a la
-							siguiente intersección (si es la tercer interseccion de la linea cambia a la primera,
-							si es la segunda cambia a la tercera y asi)*/
-						foundNext = true;
-						break;
-					}
+					startIntersection = lines[i].intersections[j];
+					startLine = lines[i];
+
+					usedLines[step] = lines[i];
+					usedIntersections[step] = startIntersection;
+
+					step++;
+					startFound = true;
 				}
 			}
 		}
 
-		//Quizas esto se puede sacar
-		if (!foundNext)
-			return false; //Si no encuentra la siguiente intersección, no hay cuadrilátero
+		// Si no se encontró una intersección válida, no es cuadrilátero
+		if (!startFound)
+			return false;
 
-		step++;
-	}
+		Vector2 currentIntersection = startIntersection;
+		bool foundNext = false;
 
-	/*Nunca llega a este if
-	if (currentIntersection == startIntersection && step == totalLines - 1)
+		// Busco las siguientes intersecciones en orden
+		while (step < totalLines)
+		{
+			foundNext = false;
+
+			for (int i = 0; i < totalLines; i++)
+			{
+				// Reviso que no sea una línea ya utilizada
+				if (IsNotUsedLine(usedLines, lines[i], step))
+				{
+					for (int j = 0; j < lines[i].totalLineIntersections; j++)
+					{
+						if (lines[i].intersections[j] == currentIntersection) // Encuentro en que otra linea esta la interseccion
+						{
+							int nextIndex = (j + 1) % lines[i].totalLineIntersections;
+							currentIntersection = lines[i].intersections[nextIndex]; // Cambio a la siguiente intersección de esa linea
+
+							// Guardo la linea y la interseccion para no volverlas a evaluar
+							usedLines[step] = lines[i];
+							usedIntersections[step] = currentIntersection;
+
+							step++;
+							foundNext = true;
+							break;
+						}
+					}
+				}
+
+				if (foundNext)
+					break;
+			}
+
+			// Si no se encontró una siguiente intersección, reinicio
+			if (!foundNext)
+			{
+				step = 0;
+				startFound = false;
+
+				if (intersectionIndex < lines[lineIndex].totalLineIntersections - 1)
+				{
+					intersectionIndex++;
+				}
+				else if (lineIndex < totalLines - 1)
+				{
+					lineIndex++;
+					intersectionIndex = 0;
+				}
+
+				break; // Salgo del bucle
+
+			}
+		}
+
+	} while (!startFound || step < totalLines);
+
+	//Relaciono la primer lina con la ultima interseccion
+	for (int i = 0; i < startLine.totalLineIntersections; i++)
 	{
-		area = CalculateArea(previousIntersections, 4);
-		BeginDrawing();
-		string areaText = "Area: " + to_string(area);
-		DrawText(areaText.data(), 0, GetScreenHeight() - 50, 30, BLUE);
-		EndDrawing();
-		return true;
+		if (usedIntersections[3] == startLine.intersections[i] &&
+			usedIntersections[3] != startIntersection)
+		{
+			return true;
+		}
 	}
+
+	//Debug
+	/*DebugIntersections(usedIntersections);
+
+	DebugLines(usedLines);
+
+	cout << startIntersection.x << ", " << startIntersection.y << endl;
+	Line lastLine = usedLines[totalLines - 1]; // Última línea usada
+
+	for (int j = 0; j < lastLine.totalLineIntersections; j++)
+	{
+		cout << lastLine.intersections[j].x << ", " << lastLine.intersections[j].y << endl;
+	}
+	cout << endl;
 	*/
+
 	return false;
 }
 
-bool IsNotPreviousLine(Line previousLines[], Line otherLine, int step)
+
+bool IsNotUsedLine(Line previousLines[], Line otherLine, int step)
 {
 	//Reviso no haber trabajado con esta interseccion antes
 	for (int i = 0; i < step; i++)
@@ -390,22 +462,27 @@ bool IsNotPreviousLine(Line previousLines[], Line otherLine, int step)
 	return true;
 }
 
-float CalculateArea(Vector2 points[], int n) {
+float CalculateArea(Vector2 points[], int n)
+{
 	float area = 0.0f;
 
-	for (int i = 0; i < n; i++) {
+	for (int i = 0; i < n; i++)
+	{
 		int j = (i + 1) % n;
 		area += points[i].x * points[j].y;
 		area -= points[j].x * points[i].y;
+		//Teorema de Heron
 	}
 
 	return abs(area) / 2.0f; //Valor absoluto
 }
 
-float CalculatePerimeter(Vector2 points[], int n) {
+float CalculatePerimeter(Vector2 points[], int n)
+{
 	float perimeter = 0.0f;
 
-	for (int i = 0; i < n; i++) {
+	for (int i = 0; i < n; i++)
+	{
 		int j = (i + 1) % n;
 		perimeter += sqrt(pow(points[j].x - points[i].x, 2) + pow(points[j].y - points[i].y, 2));
 	}
